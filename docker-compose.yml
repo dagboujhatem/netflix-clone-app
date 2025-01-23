@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  # MySQL service
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-netflix
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: W6o6aOirRdDuxCk
+#      MYSQL_DATABASE: users
+#      MYSQL_USER: dbuser
+#      MYSQL_PASSWORD: W6o6aOirRdDuxCk
+    ports:
+      - "3306:3306"             # Expose MySQL port to localhost (if needed)
+    volumes:
+      - ./.database:/docker-entrypoint-initdb.d

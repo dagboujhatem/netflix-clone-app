@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    username: root
+    password: W6o6aOirRdDuxCk
+    url: jdbc:mysql://localhost:3306/netflix_db
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+      dialect: org.hibernate.dialect.MySQLDialect
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false

@@ -1,0 +1,40 @@
+server:
+  port: 8014
+
+spring:
+  application:
+    name: netflix-api-gateway
+  profiles:
+    default: dev
+  cloud:
+    gateway:
+      routes:
+        - id: netflix-user-service
+          uri: lb://netflix-user-service
+          predicates:
+            - Path=/users-service/**
+          filters:
+            - RewritePath=/users-service/(?<segment>.*), /$\{segment}  # Strip 'users-service' from the path
+        - id: netflix-category-service
+          uri: lb://netflix-category-service
+          predicates:
+            - Path=/categories-service/**
+          filters:
+            - RewritePath=/categories-service/(?<segment>.*), /$\{segment}  # Strip 'categories-service' from the path
+        - id: netflix-movie-service
+          uri: lb://netflix-movie-service
+          predicates:
+            - Path=/movies-service/**
+          filters:
+            - RewritePath=/movies-service/(?<segment>.*), /$\{segment}  # Strip 'movies-service' from the path
+
+      globalcors: # Optional: Enable CORS globally
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS

@@ -1,0 +1,8 @@
+server:
+  port: 8013
+
+spring:
+  application:
+    name: netflix-discovery-service
+  profiles:
+    default: dev

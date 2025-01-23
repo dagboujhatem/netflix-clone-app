@@ -1,0 +1,8 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: netflix-user-service
+  profiles:
+    default: dev
+
