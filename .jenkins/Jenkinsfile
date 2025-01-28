@@ -5,7 +5,11 @@ pipeline {
 			customWorkspace("workspace/${env.JOB_NAME}")
 		}
 	}
-
+	environment {
+		ECR_PRIVATE_REGISTRY_URL = "590184116223.dkr.ecr.eu-west-3.amazonaws.com"
+		AWS_ACCOUNT_ID="590184116223"
+		AWS_DEFAULT_REGION="eu-west-3"
+	}
 	options {
 		timeout(time: 1, unit: 'HOURS')
 		timestamps()
@@ -82,13 +86,29 @@ pipeline {
 					def additional_services = ["netflix-api-gateway", "netflix-service-discovery"]
 					def jar_files = []
 					sh(script: 'find ./*-service/ -name *.jar', returnStdout: true).trim().split('\n').each { jar_files << it }
+					print(jar_files)
 					// add additional_services to jar_files
-					additional_services.each{ service ->
-						sh(script: 'find ./${service}/ -name *.jar', returnStdout: true).trim().split('\n').each { jar_files << it }
-					}
+					//additional_services.each{ service ->
+					//	sh(script: """'find ./${service}/ -name *.jar'""", returnStdout: true).trim().split('\n').each { jar_files << it }
+					//}
 					print(jar_files)
 
-					echo "connection to docker repo"
+					echo 'Building, tagging & Push the Docker Image to AWS private registry (AWS ECR) ...'
+					echo 'Step 1: Login to AWS ECR'
+					sh """aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"""
+
+					jar_files.each(jar_file -> ["${jar_file.split('/')[1]}": {
+						def service_name = jar_file.split('/')[1]
+						def jar_file_path = jar_file.split('/' + service_name)[1]
+						echo "${jar_file_path}"
+						echo "building the ${service_name}"
+						sh "docker build -t '${env.ECR_PRIVATE_REGISTRY_URL}/${env.service_name}:${env.POM_VERSION}' -f Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}"
+						//def image = docker.build("acdc/${service_name}:${env.POM_VERSION}", "-f Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}")
+						echo "pushing image ${service_name}:${env.POM_VERSION}"
+						image.push()
+					}]
+				})
+
 				}
 			}
 		}
