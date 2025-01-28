@@ -76,13 +76,15 @@ pipeline {
 
 		stage('Build image') {
 			steps {
-				echo 'Packaging the application...'
-				archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // Archive les JAR
-				def jar_files = []
-				sh(script: 'find ./*-service/ -name *.jar',
-					returnStdout: true).trim().split('\n').each { jar_files << it }
-				echo jar_files
-				echo "connection to docker repo"
+				script {
+					echo 'Packaging the application...'
+					archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // Archive les JAR
+					def jar_files = []
+					sh(script: 'find ./*-service/ -name *.jar',
+						returnStdout: true).trim().split('\n').each { jar_files << it }
+					echo jar_files
+					echo "connection to docker repo"
+				}
 			}
 		}
 
