@@ -43,7 +43,8 @@ pipeline {
 					} else {
 						error "The changelist must be either -SNAPSHOT or -RELEASE"
 					}
-					echo "This version is: ${env.POM_VERSION} et ${env.DOCKER_REG_ENV}"
+
+					echo "This version is: ${env.POM_VERSION} & Docker Registry is: ${env.DOCKER_REG_ENV}"
 				}
 			}
 		}
