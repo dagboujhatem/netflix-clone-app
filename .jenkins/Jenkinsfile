@@ -11,10 +11,6 @@ pipeline {
 		timestamps()
 	}
 
-	tools {
-		maven 'Maven'
-	}
-
 	stages {
 		stage('Initialisation') {
 			steps {
@@ -28,7 +24,7 @@ pipeline {
 		stage('Build') {
 			steps {
 				echo 'Building the project...'
-				mvn "clean install -DskipTests"
+				 sh "mvn clean install -DskipTests"
 			}
 		}
 
