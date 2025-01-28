@@ -2,62 +2,15 @@ pipeline {
 	agent any
 
 	options {
-		buildDiscarder(logRotator(numToKeepStr: "10"))
 		timeout(time: 1, unit: 'HOURS')
-		disableConcurrentBuilds()
-		skipStagesAfterUnstable()
 		timestamps()
-		ansiColor('xterm')
 	}
 
 	stages {
-
 		stage('Build') {
 			steps {
 				echo 'Building the project...'
 			}
-		}
-
-		stage('Test') {
-			steps {
-				echo 'Running unit tests...'
-			}
-			post {
-				always {
-					//junit '**/target/surefire-reports/*.xml' // Archive les rapports JUnit
-				}
-			}
-		}
-
-		stage('Static Analysis') {
-			steps {
-				echo 'Running static code analysis...'
-				//sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.host.url=http://your-sonar-url -Dsonar.login=your-sonar-token"
-			}
-		}
-
-		stage('Package') {
-			steps {
-				echo 'Packaging the application...'
-			}
-		}
-
-		stage('Deploy') {
-			when {
-				branch 'master' // Exécute cette étape uniquement sur la branche principale
-			}
-			steps {
-				echo 'Deploying the application...'
-			}
-		}
-	}
-
-	post {
-		success {
-			echo 'Pipeline executed successfully!'
-		}
-		failure {
-			echo 'Pipeline failed. Please check the logs.'
 		}
 	}
 }
