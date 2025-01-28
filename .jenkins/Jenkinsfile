@@ -15,8 +15,7 @@ pipeline {
 		stage('Initialisation') {
 			steps {
 				script {
-					echo 'Récupération des numéros de version'
-					// Retrieving version and revision numbers from POM file
+					echo 'Retrieving changelist and revision numbers from POM file'
 					env.REVISION = readMavenPom().getProperties().getProperty("revision")
 					env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
 					echo "${env.REVISION} et ${env.CHANGELIST}"
@@ -46,7 +45,7 @@ pipeline {
 		stage('Build') {
 			steps {
 				echo 'Building the project...'
-				 sh "mvn -am -amd versions:set -DnewVersion=${env.POM_VERSION} -P CI -DskipTests  clean install"
+				 sh "mvn -am -amd versions:set -DnewVersion=${env.POM_VERSION} -P CI -DskipTests clean install"
 			}
 		}
 
@@ -78,7 +77,7 @@ pipeline {
 		stage('Package') {
 			steps {
 				echo 'Packaging the application...'
-				sh "mvn package"
+				sh "mvn -am -amd versions:set -DnewVersion=${env.POM_VERSION} package"
 				archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // Archive les JAR
 			}
 		}
