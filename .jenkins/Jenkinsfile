@@ -11,6 +11,10 @@ pipeline {
 		timestamps()
 	}
 
+	tools {
+		maven 'Maven'
+	}
+
 	stages {
 		stage('Initialisation') {
 			steps {
