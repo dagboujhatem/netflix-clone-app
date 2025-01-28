@@ -20,6 +20,26 @@ pipeline {
 					env.REVISION = readMavenPom().getProperties().getProperty("revision")
 					env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
 					echo "${env.REVISION} et ${env.CHANGELIST}"
+
+					if (env.CHANGELIST == "-SNAPSHOT") {
+						env.DOCKER_REG_ENV = 'stages'
+						if (env.BRANCH_NAME.contains('RC_') || env.BRANCH_NAME.contains('hotfix_')) {
+							// We're on a branch destined to be delivered
+							env.POM_VERSION = "${env.REVISION}${env.CHANGELIST}"
+						} else {
+							// We're on a separate branch in snapshot, use the branch name
+							env.POM_VERSION = "${env.BRANCH_NAME}${env.CHANGELIST}".replace('/','_')
+						}
+					} else if (env.CHANGELIST == "-RELEASE") {
+						env.DOCKER_REG_ENV = 'releases'
+						if (env.BRANCH_NAME.contains('RC_') || env.BRANCH_NAME.contains('hotfix_')) {
+							env.POM_VERSION = "${env.REVISION}${env.CHANGELIST}"
+						} else {
+							error "The branch cannot be a RELEASE branch, please create a RC_ or a hotfix_"
+						}
+					} else {
+						error "The changelist must be either -SNAPSHOT or -RELEASE"
+					}
 				}
 			}
 		}
