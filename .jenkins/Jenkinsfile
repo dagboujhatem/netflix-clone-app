@@ -16,9 +16,16 @@ pipeline {
 			steps {
 				echo 'Récupération des numéros de version'
 				// récupération des numéros de version et de révision
-				env.REVISION = readMavenPom().getProperties().getProperty("revision")
-				env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
-				echo "${env.REVISION} et ${env.CHANGELIST}"
+				// Read the POM file
+				def pom = readMavenPom file: 'pom.xml'
+
+				// Extract information
+				def projectVersion = pom.version
+				def groupId = pom.groupId
+				echo "${projectVersion} et ${groupId}"
+				//env.REVISION = readMavenPom().getProperties().getProperty("revision")
+				//env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
+				//echo "${env.REVISION} et ${env.CHANGELIST}"
 			}
 		}
 		stage('Build') {
