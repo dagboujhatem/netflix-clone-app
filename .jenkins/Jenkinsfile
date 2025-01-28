@@ -31,6 +31,13 @@ pipeline {
 		stage('Test') {
 			steps {
 				echo 'Running unit tests...'
+				sh "mvn test"
+			}
+			post {
+				success {
+					echo 'Generating test reports'
+					junit '*/target/surefire-reports/*.xml'
+				}
 			}
 		}
 
