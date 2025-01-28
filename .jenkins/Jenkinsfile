@@ -34,12 +34,14 @@ pipeline {
 				sh "mvn test"
 			}
 			post {
-				success {
-					try {
-						echo 'Generating test reports'
-						junit '**/target/surefire-reports/*.xml'
-					} catch (Exception e) {
-						echo "No test reports found. Skipping test results publishing."
+				always {
+					script {
+						try {
+							echo 'Generating test reports'
+							junit '**/target/surefire-reports/*.xml'
+						} catch (Exception e) {
+							echo "No test reports found. Skipping test results publishing."
+						}
 					}
 				}
 			}
