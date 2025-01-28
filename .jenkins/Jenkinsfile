@@ -77,7 +77,6 @@ pipeline {
 		stage('Package') {
 			steps {
 				echo 'Packaging the application...'
-				sh "mvn -am -amd versions:set -DnewVersion=${env.POM_VERSION} package"
 				archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // Archive les JAR
 			}
 		}
