@@ -1,5 +1,10 @@
 pipeline {
-	agent any
+	agent {
+		label {
+			label ''
+			customWorkspace("workspace/${env.JOB_NAME}")
+		}
+	}
 
 	options {
 		timeout(time: 1, unit: 'HOURS')
@@ -7,6 +12,11 @@ pipeline {
 	}
 
 	stages {
+		stage('Initialisation') {
+			steps {
+
+			}
+		}
 		stage('Build') {
 			steps {
 				echo 'Building the project...'
@@ -32,4 +42,19 @@ pipeline {
 		}
 
 	}
+	post {
+		always {
+			script{
+				if (getContext(hudson.FilePath)) {
+					// Suppression du workspace jenkins
+					deleteDir()
+					// Clean up the Docker system in order to tackle it.
+					// The following command can be used to remove unused images only  (i.e. not referenced by any container) including dangling ones
+					// You can use the -a flag (short for --all) as follows:
+					sh("sudo sh -c 'yes | docker system prune -a'")
+				}
+			}
+		}
+	}
+
 }
