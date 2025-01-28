@@ -1,0 +1,357 @@
+@Library('pipeline-library-stm@master') _
+
+import fr.enedis.donnees.bazinga.VaultHelper
+
+def skip_all = false
+def skipIntegTestDefaultValue = true
+if ( env.BRANCH_NAME.contains('RC_') || env.BRANCH_NAME == 'dev_1' )
+{
+	skipIntegTestDefaultValue = false
+}
+pipeline {
+
+	agent any
+
+	parameters {
+		booleanParam(name: 'FORCE_BUILD_ALL', defaultValue: false, description: 'Sert à build tous les services ACDC')
+		booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Sert à ignorer les Tests unitaires Junit')
+		booleanParam(name: 'SKIP_INTEG_TESTS', defaultValue: skipIntegTestDefaultValue, description: 'Sert à ignorer les Tests d\'intégration Junit')
+	}
+
+	options {
+		buildDiscarder(logRotator(numToKeepStr: "10"))
+		timeout(time: 1, unit: 'HOURS')
+		disableConcurrentBuilds()
+		skipStagesAfterUnstable()
+		ansiColor('xterm')
+	}
+
+	tools {
+		jdk 'jdk17'
+		maven 'Maven'
+	}
+
+	stages {
+
+		stage('Initialisation') {
+			steps {
+				echo 'Init phase...'
+				script {
+					// récupération des identifiants qui servent pour le fichier settings.xml + secrets from vault
+					read_vault_secrets()
+					env.MVN_SETTINGS = 'VMM_zca_artifactory_maven_settings'
+					env.JDK_JAVA_OPTIONS='--add-exports java.security.jgss/sun.security.krb5=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED'
+
+					// récupération des numéros de version et de révision
+					env.REVISION = readMavenPom().getProperties().getProperty("revision")
+					env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
+					echo "${env.REVISION} et ${env.CHANGELIST}"
+					if (env.CHANGELIST == "-SNAPSHOT") {
+						env.DOCKER_REG_ENV = 'stages'
+						if (env.BRANCH_NAME.contains('RC_') || env.BRANCH_NAME.contains('hotfix_')) {
+							// on est sur une branche destinée à être livrée
+							env.POM_VERSION = "${env.REVISION}${env.CHANGELIST}"
+						} else {
+							// on est sur une branche à part en snapshot, on utilise le nom de la  branche
+							env.POM_VERSION = "${env.BRANCH_NAME}${env.CHANGELIST}".replace('/','_')
+						}
+					} else if (env.CHANGELIST == "-RELEASE") {
+						env.DOCKER_REG_ENV = 'releases'
+						if (env.BRANCH_NAME.contains('RC_') || env.BRANCH_NAME.contains('hotfix_')) {
+							env.POM_VERSION = "${env.REVISION}${env.CHANGELIST}"
+						} else {
+							error "The branch cannot be a RELEASE branch, please create a RC_ or a hotfix_"
+						}
+					} else {
+						error "The changelist must be either -SNAPSHOT or -RELEASE"
+					}
+
+					// Récupérer les modules modifiés (si un fichier root modifié on build tout = ALL)
+					env.MODULE_TO_BUILD = get_services_to_build()
+					if ((env.MODULE_TO_BUILD).size() == 0 ) {
+						skip_all = true
+					}
+					env.DOCKER_BUILDKIT = 1
+				}
+			}
+		}
+
+		stage('Build') {
+			when {
+				expression { skip_all != true }
+			}
+			steps {
+				echo 'Building...'
+				script {
+					if (env.module_to_build == "ALL") {
+						// on fixe le numéro de version pour ne pas avoir de problèmes lors des prochaines étapes
+						mvn "-am -amd versions:set -DnewVersion=${env.POM_VERSION} -P CI -DskipTests clean install"
+					} else {
+						mvn "-pl ${env.MODULE_TO_BUILD} -am -amd versions:set -DnewVersion=${env.POM_VERSION} -P CI -DskipTests clean install"
+					}
+				}
+			}
+		}
+
+		stage('Unit test') {
+			when {
+				expression { skip_all == false && params.SKIP_TESTS == false }
+			}
+			steps {
+				echo 'Testing...'
+				script {
+					if (env.MODULE_TO_BUILD == "ALL") {
+						echo 'Lancement des tests sur tout les modules'
+						mvn "-am -amd -Drun.install.build.skip=true -Drun.install.initialize.skip=true -Dtest=!*IntegrationTest -DfailIfNoTests=false -P CI surefire-report:report"
+					} else {
+						echo "Lancement des tests sur le module ${env.MODULE_TO_BUILD}"
+						mvn "-pl ${env.MODULE_TO_BUILD} -am -amd -Drun.install.build.skip=true -Drun.install.initialize.skip=true -Dtest=!*IntegrationTest -DfailIfNoTests=false -P CI surefire-report:report"
+					}
+				}
+			}
+			post {
+				success {
+					echo 'Génération du rapport des tests'
+					junit '*/target/surefire-reports/*.xml'
+				}
+			}
+		}
+
+		stage('Integration test') {
+			when {
+				expression { skip_all == false && params.SKIP_INTEG_TESTS == false }
+			}
+			steps {
+				echo 'Testing...'
+				script {
+					if (env.MODULE_TO_BUILD == "ALL") {
+						echo 'Lancement des tests sur tout les modules'
+						mvn "-am -amd -Drun.install.build.skip=true -Drun.install.initialize.skip=true -Dspring.profiles.active=dev -Dtest=*IntegrationTest -DfailIfNoTests=false -P CI surefire-report:report"
+					} else {
+						echo "Lancement des tests sur le module ${env.MODULE_TO_BUILD}"
+						mvn "-pl ${env.MODULE_TO_BUILD} -am -amd -Drun.install.build.skip=true -Drun.install.initialize.skip=true -Dspring.profiles.active=dev -Dtest=*IntegrationTest -DfailIfNoTests=false -P CI surefire-report:report"
+					}
+				}
+			}
+			post {
+				success {
+					echo 'Génération du rapport des tests'
+					junit '*/target/surefire-reports/*.xml'
+				}
+			}
+		}
+
+		stage('Build and Push Images') {
+			when {
+				expression { skip_all != true }
+			}
+			steps {
+				script {
+					// Récupération de l'ensemble des services buildés
+					def jar_files = []
+					sh(script: 'find ./*-service/ -name *.jar',
+						returnStdout: true).trim().split('\n').each { jar_files << it }
+					echo "connection to docker repo"
+					docker.withRegistry("https://vmm-docker-${env.DOCKER_REG_ENV}.proxy-zci-to-repositoi-zca.enedis.fr", "VMM_ARTIFACTORY_RW_ZCA") {
+						echo "connected to the docker repo"
+
+						def dockerTasks = jar_files.collectEntries { jar_file ->
+						["${jar_file.split('/')[1]}": {
+
+						def service_name = jar_file.split('/')[1]
+						def jar_file_path = jar_file.split('/' + service_name)[1]
+						echo "${jar_file_path}"
+						echo "building the ${service_name}"
+						def image = docker.build("acdc/${service_name}:${env.POM_VERSION}", "-f Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}")
+
+						echo "pushing image ${service_name}:${env.POM_VERSION}"
+						image.push()
+
+						echo "cleaning image ${service_name} from local jenkins"
+						sh "docker rmi -f \$(docker images --filter 'reference=acdc/${service_name}:${env.POM_VERSION}' -a -q)"
+						}]
+						}
+						parallel dockerTasks
+					}
+					// récupération des modules à déployer en fonction des jar
+					env.module_to_deploy = (jar_files.collect { it.split('/')[1] } - 'test-service').join(',')
+				}
+			}
+		}
+
+		stage('Maven push to artifactory') {
+			when {
+				expression { skip_all != true }
+			}
+			steps {
+				echo "Pushing maven artifacts"
+				script {
+					if (env.MODULE_TO_BUILD == "ALL") {
+						mvn "-am -amd -Drun.install.build.skip=true -DskipTests deploy"
+					} else {
+						mvn "-pl ${env.MODULE_TO_BUILD} -am -amd -Drun.install.build.skip=true -DskipTests deploy"
+					}
+				}
+			}
+		}
+
+		stage('Cleanup local repo') {
+			when {
+				expression { skip_all != true }
+			}
+			steps {
+				echo "Remove project's artifacts from local repository"
+				script {
+					if (env.module_to_build == "ALL") {
+						// on fixe le numéro de version pour ne pas avoir de problèmes lors des prochaines étapes
+						mvn "-am -amd versions:set -DnewVersion=${env.POM_VERSION} -DskipTests build-helper:remove-project-artifact -DremoveAll=false"
+					} else {
+						mvn "-pl ${env.MODULE_TO_BUILD} -am -amd versions:set -DnewVersion=${env.POM_VERSION} -DskipTests build-helper:remove-project-artifact -DremoveAll=false"
+					}
+				}
+			}
+		}
+
+		stage('Deploy to dev') {
+			when {
+				expression { skip_all != true }
+				branch 'dev_1'
+			}
+			steps {
+				echo 'Deploying to dev...'
+				catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+					script {
+						deploy('dev')
+					}
+				}
+			}
+		}
+	}
+	post {
+		always {
+			cleanWs(deleteDirs: true,
+				disableDeferredWipeout: true,
+				notFailBuild: true)
+			deleteDir()
+		}
+	}
+
+}
+
+def deploy(String targetEnv) {
+	List<String> moduleToDeploy = env.module_to_deploy.split(',')
+	String versionName = targetEnv == 'dev' ? 'dev_1' : env.REVISION
+	moduleToDeploy = moduleToDeploy.collect { it.substring(0, it.length() - 8) }
+	build job: 'VMM/VMM Kubernetes Manager', parameters: [
+	string(name: 'APP_NAME', value: 'ACDC'),
+	string(name: 'ENV_NAME', value: targetEnv),
+	string(name: 'ACTION', value: 'Deployer'),
+	string(name: 'VERSION_NAME', value: versionName),
+	booleanParam(name: 'RELEASE', value: env.CHANGELIST == '-RELEASE'),
+	string(name: 'PODS', value: moduleToDeploy.join(','))
+	]
+}
+
+def read_vault_secrets() {
+	// Init du Vault Helper qui utilise le credential Jenkins VMM_KYSS
+	env.VAULT_TARGET = 'KYSS'
+	VaultHelper vault_helper = new VaultHelper(this, 'VMM')
+	vault_helper.login()
+
+	// Lecture des secrets Vault
+	def url_base = env.VAULT_ADDR + '/v1/secret/vmm/data/'
+	def secret_artifactory = vault_helper.readPath(url_base + 'all/appli/vmm_artifactory_rw_zca')
+	def secret_postgres = vault_helper.readPath(url_base + 'dev/appli/dev/zci/acdc/postgresql_stm_cpte_acdc')
+	def secret_teradata = vault_helper.readPath(url_base + 'dev/appli/dev/zci/acdc/teradata_stm_cpte_acdc')
+	def secret_hbase = vault_helper.readPath(url_base + 'dev/appli/dev/zci/acdc/hbase_stm_cpte_acdc')
+
+	// Déclaration des variables d'environnement
+	env.artifactory_username = secret_artifactory.username
+	env.artifactory_pwd = secret_artifactory.password
+	env.POSTGRES_URL = secret_postgres.url
+	env.POSTGRES_USER = secret_postgres.username
+	env.POSTGRES_PASSWORD = secret_postgres.password
+	env.TERADATA_URL = secret_teradata.url
+	env.TERADATA_USER = secret_teradata.username
+	env.TERADATA_PASSWORD = secret_teradata.password
+	env.TERADATA_SID = secret_teradata.sid
+	env.HBASE_PREFIX = secret_hbase.prefix
+	env.HBASE_QUORUM = secret_hbase.quorum
+	env.HBASE_REALM = secret_hbase.realm
+	env.HBASE_USER = secret_hbase.username
+
+	def uri = new URI(env.POSTGRES_URL)
+	String query = uri.getQuery()
+
+	// Check if the "sslmode" parameter is present in the query string
+	//      if (query == null) {
+	//             env.POSTGRES_URL += "?sslmode=disable";
+	//      } else if (!query.contains("sslmode=")) {
+	//             env.POSTGRES_URL += "&sslmode=disable";
+	//      } else {
+	//             String newQuery = query.replaceAll("sslmode=[^&]*", "sslmode=disable");
+	//             env.POSTGRES_URL = env.POSTGRES_URL.replace(query, newQuery);
+	//      }
+
+
+	// Création des certificats pour les tests unitaires
+	String kerberosConfig = secret_hbase.kerberos
+	String keytabBase64 = secret_hbase.keytab
+	writeFile file: "kerberos/kerberos64.keytab", text: "$keytabBase64"
+	sh("cat kerberos/kerberos64.keytab | base64 --decode > kerberos/kerberos.keytab")
+	writeFile file: "kerberos/krb5.conf", text: "$kerberosConfig"
+}
+
+
+@NonCPS
+def get_services_to_build() {
+
+	def services_to_build = ""
+	def root_directories_or_files_modified = get_root_directories_or_files_modified()
+
+	echo "================ $root_directories_or_files_modified"
+	if (root_directories_or_files_modified.contains('pom.xml') || params.FORCE_BUILD_ALL == true || env.BUILD_NUMBER == '1') {
+		echo "We should build all the project"
+		services_to_build = "ALL"
+	} else {
+		services_to_build = root_directories_or_files_modified.findAll { it.contains('-service') || it.contains('-lib') }
+		services_to_build = services_to_build.join(',')
+		echo "There are only libs and services: ${services_to_build}"
+	}
+	return services_to_build
+}
+
+
+@NonCPS
+def get_root_directories_or_files_modified() {
+	/*fonction permettant de récupérer l'ensemble des fichiers ou dossier du la racine qui ont été modifié
+	exemple:
+	1 commit avec pom.xml modifié
+	1 commit avec referentiel-service/.../**.class modifié
+
+	La fonction renvoie ['pom.xml', 'referentiel-service']
+	*/
+	def root_directories_or_files_modified = []
+	def build = currentBuild
+	while (build != null && build.result != 'SUCCESS') {
+		echo "checking the build ${build.number}"
+		def changeLogSets = build.changeSets
+		for (int i = 0; i < changeLogSets.size(); i++) {
+			def entries = changeLogSets[i].items
+			for (int j = 0; j < entries.length; j++) {
+				def entry = entries[j]
+				echo "${entry.commitId} by ${entry.author} on ${new Date(entry.timestamp)}: ${entry.msg}"
+				def files = new ArrayList(entry.affectedFiles)
+				for (int k = 0; k < files.size(); k++) {
+					def file = files[k]
+					echo "${file.editType.name} ${file.path}"
+					root_directories_or_files_modified.add(file.path.split("/")[0])
+				}
+			}
+		}
+		build = build.previousBuild
+	}
+	root_directories_or_files_modified = root_directories_or_files_modified.unique()
+
+	return root_directories_or_files_modified
+}

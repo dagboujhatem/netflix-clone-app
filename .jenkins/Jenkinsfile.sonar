@@ -1,0 +1,118 @@
+@Library('pipeline-library-stm@master') _
+
+import fr.enedis.donnees.bazinga.VaultHelper
+
+pipeline {
+
+  agent {
+    // permet de définir un workspace spécifique que l'on supprime à la fin de la pipeline
+    label {
+      label ''
+      customWorkspace("workspace/${env.JOB_NAME}")
+    }
+  }
+
+  post {
+    always {
+      // suppression du workspace défini auparavant
+      deleteDir()
+    }
+  }
+
+  options {
+    buildDiscarder(logRotator(numToKeepStr: "10"))
+    timeout(time: 1, unit: 'HOURS')
+    disableConcurrentBuilds()
+    skipStagesAfterUnstable()
+    ansiColor('xterm')
+  }
+
+  tools {
+    jdk 'jdk17'
+    maven 'Maven'
+  }
+
+  stages() {
+
+    stage('Initialisation') {
+      steps {
+        echo 'Init phase...'
+        script {
+          // récupération des identifiants qui servent pour le fichier settings.xml + secrets from vault
+          read_vault_secrets()
+          env.MVN_SETTINGS = 'VMM_artifactory_maven_settings'
+          // récupération des numéros de version et de révision
+          env.REVISION = readMavenPom().getProperties().getProperty("revision")
+          env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
+          echo "${env.REVISION} et ${env.CHANGELIST}"
+          env.POM_VERSION = "${env.BRANCH_NAME}${env.CHANGELIST}"
+        }
+      }
+    }
+    stage('Build ihm-service') {
+      steps {
+        echo 'Build ihm-service...'
+        script {
+          mvn "-pl ihm-service -am -amd versions:set -DnewVersion=${env.POM_VERSION} -DskipTests clean install"
+        }
+      }
+    }
+    stage('Sonar') {
+      steps {
+        timeout(time: 20, unit: 'MINUTES') {
+          script {
+            mvn """clean verify  -am -amd \
+                                org.jacoco:jacoco-maven-plugin:prepare-agent \
+                                -Dspring.profiles.active=dev \
+                                -Drun.install.build.skip=true \
+                                surefire-report:report \
+                                org.jacoco:jacoco-maven-plugin:report \
+                                sonar:sonar \
+                                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                -Dsonar.java.binaries=target \
+                                -Dsonar.host.url=${env.sonar_url} \
+                                -Dsonar.login=${env.sonar_token}"""
+
+          }
+        }
+      }
+    }
+  }
+}
+
+def read_vault_secrets() {
+  // Init du Vault Helper qui utilise le credential Jenkins VMM_KYSS
+  env.VAULT_TARGET = 'KYSS'
+  VaultHelper vault_helper = new VaultHelper(this, 'VMM')
+  vault_helper.login()
+
+  // Lecture des secrets Vault
+  def url_base = env.VAULT_ADDR + '/v1/secret/vmm/data/'
+  def secret_sonar = vault_helper.readPath(url_base + 'all/appli/vmm_sonar_token')
+  def secret_postgres = vault_helper.readPath(url_base + 'dev/appli/dev/zci/acdc/postgresql_stm_cpte_acdc')
+  def secret_teradata = vault_helper.readPath(url_base + 'dev/appli/dev/zci/acdc/teradata_stm_cpte_acdc')
+  def secret_hbase = vault_helper.readPath(url_base + 'dev/appli/dev/zci/acdc/hbase_stm_cpte_acdc')
+
+  // Déclaration des variables d'environnement
+  env.sonar_url = secret_sonar.url
+  env.sonar_token = secret_sonar.token
+  env.POSTGRES_URL = secret_postgres.url
+  env.POSTGRES_USER = secret_postgres.username
+  env.POSTGRES_PASSWORD = secret_postgres.password
+  env.TERADATA_URL = secret_teradata.url
+  env.TERADATA_USER = secret_teradata.username
+  env.TERADATA_PASSWORD = secret_teradata.password
+  env.TERADATA_SID = secret_teradata.sid
+  env.HBASE_PREFIX = secret_hbase.prefix
+  env.HBASE_QUORUM = secret_hbase.quorum
+  env.HBASE_REALM = secret_hbase.realm
+  env.HBASE_USER = secret_hbase.username
+  env.TERADATA_SID = 'XGN1'
+
+  // Création des certificats pour les tests unitaires
+  String kerberosConfig = secret_hbase.kerberos
+  String keytabBase64 = secret_hbase.keytab
+  writeFile file: "kerberos/kerberos64.keytab", text: "$keytabBase64"
+  sh("cat kerberos/kerberos64.keytab | base64 --decode > kerberos/kerberos.keytab")
+  writeFile file: "kerberos/krb5.conf", text: "$kerberosConfig"
+}
