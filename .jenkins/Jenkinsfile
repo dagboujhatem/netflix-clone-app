@@ -77,12 +77,17 @@ pipeline {
 		stage('Build image') {
 			steps {
 				script {
-					echo 'Packaging the application...'
+					echo 'Find Jar files for this application...'
 					archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // Archive les JAR
+					def additional_services = ["netflix-api-gateway", "netflix-service-discovery"]
 					def jar_files = []
-					sh(script: 'find ./*-service/ -name *.jar',
-						returnStdout: true).trim().split('\n').each { jar_files << it }
-					echo jar_files
+					sh(script: 'find ./*-service/ -name *.jar', returnStdout: true).trim().split('\n').each { jar_files << it }
+					// add additional_services to jar_files
+					additional_services.each{ service ->
+						sh(script: 'find ./${service}/ -name *.jar', returnStdout: true).trim().split('\n').each { jar_files << it }
+					}
+					print(jar_files)
+
 					echo "connection to docker repo"
 				}
 			}
