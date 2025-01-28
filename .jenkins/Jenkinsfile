@@ -12,5 +12,24 @@ pipeline {
 				echo 'Building the project...'
 			}
 		}
+
+		stage('Test') {
+			steps {
+				echo 'Running unit tests...'
+			}
+		}
+
+		stage('Static Analysis') {
+			steps {
+				echo 'Running static code analysis...'
+			}
+		}
+
+		stage('Package') {
+			steps {
+				echo 'Packaging the application...'
+			}
+		}
+
 	}
 }
