@@ -11,7 +11,11 @@ pipeline {
 		AWS_DEFAULT_REGION="eu-west-3"
 	}
 	options {
-		timeout(time: 1, unit: 'HOURS')
+		buildDiscarder(logRotator(numToKeepStr: "10"))
+        timeout(time: 1, unit: 'HOURS')
+        disableConcurrentBuilds()
+        skipStagesAfterUnstable()
+        ansiColor('xterm')
 		timestamps()
 	}
 
@@ -51,7 +55,8 @@ pipeline {
 		stage('Build') {
 			steps {
 				echo 'Building the project...'
-				 sh "mvn -am -amd versions:set -DnewVersion=${env.POM_VERSION} -P CI -DskipTests clean install"
+				sh "mvn -am -amd versions:set -DnewVersion=${env.POM_VERSION}"
+                sh "mvn -am -amd -DskipTests clean install"
 			}
 		}
 
