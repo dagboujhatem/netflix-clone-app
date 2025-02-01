@@ -1,8 +1,8 @@
-package com.albinus.netflix.services.api.controller;
+package com.albinus.netflix.services.controller;
 
 import com.albinus.netflix.lib.dto.movie.request.MovieRequest;
 import com.albinus.netflix.lib.dto.movie.response.MovieResponse;
-import com.albinus.netflix.services.api.service.MovieService;
+import com.albinus.netflix.services.service.MovieService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

@@ -1,10 +1,10 @@
-package com.albinus.netflix.services.api.service;
+package com.albinus.netflix.services.service;
 
 import com.albinus.netflix.lib.dto.movie.request.MovieRequest;
 import com.albinus.netflix.lib.dto.movie.response.MovieResponse;
 import com.albinus.netflix.lib.mapper.MovieMapper;
 import com.albinus.netflix.lib.models.Movie;
-import com.albinus.netflix.services.api.repository.MovieRepository;
+import com.albinus.netflix.services.repository.MovieRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

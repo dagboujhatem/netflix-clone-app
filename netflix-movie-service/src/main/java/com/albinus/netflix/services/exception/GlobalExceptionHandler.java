@@ -1,4 +1,4 @@
-package com.albinus.netflix.services.api.exception;
+package com.albinus.netflix.services.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

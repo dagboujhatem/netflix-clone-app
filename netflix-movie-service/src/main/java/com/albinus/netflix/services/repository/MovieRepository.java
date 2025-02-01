@@ -1,4 +1,4 @@
-package com.albinus.netflix.services.api.repository;
+package com.albinus.netflix.services.repository;
 
 import com.albinus.netflix.lib.models.Movie;
 import org.springframework.data.jpa.repository.JpaRepository;
