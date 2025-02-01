@@ -62,37 +62,49 @@ pipeline {
 		stage('Unit Test') {
             steps {
        				echo 'Running unit tests...'
-       				sh "mvn clean test surefire-report:report" // Collects test reports
+       				sh "mvn clean test"
        			}
             post {
                 always {
                     script {
                         try {
-                            echo 'Generating test reports'
-                            junit '*/target/surefire-reports/*.xml'
+                            // Collects unit test reports
+                            junit '**/target/surefire-reports/*.xml'
+                            // Generate and archive the unit test report in HTML
+                            sh 'mvn surefire-report:report'
+                            archiveArtifacts artifacts: 'target/site/*.html', fingerprint: true
                         } catch (Exception e) {
                             echo "No test reports found. Skipping test results publishing."
                         }
                     }
+                }
+                failure {
+                    echo 'Unit tests failed!'
                 }
             }
 		}
 		stage('Integration Test') {
 			steps {
 				echo 'Running unit tests...'
-				sh "mvn clean test surefire-report:report" // Collects test reports
+				sh "mvn clean verify -DskipTests" // Runs only integration tests
 			}
 			post {
 				always {
 					script {
 						try {
-							echo 'Generating test reports'
-							junit '*/target/surefire-reports/*.xml'
+							// Collects integration test reports
+							junit '**/target/surefire-reports/*.xml'
+							// Generate and archive the integration test report in HTML
+                            sh 'mvn failsafe-report:report'
+                            archiveArtifacts artifacts: 'target/site/*.html', fingerprint: true
 						} catch (Exception e) {
 							echo "No test reports found. Skipping test results publishing."
 						}
 					}
 				}
+				failure {
+                    echo 'Integration tests failed!'
+                }
 			}
 		}
 

@@ -244,7 +244,7 @@
                 <configuration>
                     <skipTests>true</skipTests>
                 </configuration>
-                <!--executions>
+                <executions>
                     <execution>
                         <id>unit-tests</id>
                         <phase>test</phase>
@@ -254,7 +254,10 @@
                         <configuration>
                             <skip>false</skip>
                             <excludes>
-                                <exclude>**/webtests/*.java</exclude>
+                                <exclude>**/*IntegrationTest.java</exclude>
+                                <exclude>**/IntegrationTest*.java</exclude>
+                                <exclude>**/*IT.java</exclude>
+                                <exclude>**/IT*.java</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -267,14 +270,14 @@
                         <configuration>
                             <skip>false</skip>
                             <includes>
-                                <include>**/webtests/*.java</include>
+                                <include>**/*IntegrationTest.java</include>
+                                <include>**/IntegrationTest*.java</include>
+                                <include>**/*IT.java</include>
+                                <include>**/IT*.java</include>
                             </includes>
-                            <excludes>
-                                <exclude>**/pages/*.java</exclude>
-                            </excludes>
                         </configuration>
                     </execution>
-                </executions-->
+                </executions>
             </plugin>
         </plugins>
         </pluginManagement>
