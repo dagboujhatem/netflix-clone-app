@@ -59,11 +59,28 @@ pipeline {
                 sh "mvn -am -amd -DskipTests clean install"
 			}
 		}
-
-		stage('Test') {
+		stage('Unit Test') {
+            steps {
+       				echo 'Running unit tests...'
+       				sh "mvn clean test surefire-report:report" // Collects test reports
+       			}
+            post {
+                always {
+                    script {
+                        try {
+                            echo 'Generating test reports'
+                            junit '*/target/surefire-reports/*.xml'
+                        } catch (Exception e) {
+                            echo "No test reports found. Skipping test results publishing."
+                        }
+                    }
+                }
+            }
+		}
+		stage('Integration Test') {
 			steps {
 				echo 'Running unit tests...'
-				sh "mvn clean test"
+				sh "mvn clean test surefire-report:report" // Collects test reports
 			}
 			post {
 				always {

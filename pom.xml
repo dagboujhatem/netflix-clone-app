@@ -25,6 +25,7 @@
         <junit.jupiter.version>5.10.0</junit.jupiter.version>
         <mockito.version>5.4.0</mockito.version>
         <test-containers.version>1.20.4</test-containers.version>
+        <maven.surefire.plugin>3.0.0-M7</maven.surefire.plugin>
     </properties>
 
     <!-- #################################################################### -->
@@ -229,7 +230,51 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.0.0-M7</version>
+                <version>${maven.surefire.plugin}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+                <version>${maven.surefire.plugin}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven.surefire.plugin}</version>
+                <configuration>
+                    <skipTests>false</skipTests>
+                </configuration>
+                <!--executions>
+                    <execution>
+                        <id>unit-tests</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <skip>false</skip>
+                            <excludes>
+                                <exclude>**/webtests/*.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>integration-tests</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <skip>false</skip>
+                            <includes>
+                                <include>**/webtests/*.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/pages/*.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions-->
             </plugin>
         </plugins>
         </pluginManagement>
