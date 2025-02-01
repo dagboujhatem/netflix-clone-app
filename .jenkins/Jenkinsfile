@@ -56,7 +56,7 @@ pipeline {
 			steps {
 				echo 'Building the project...'
 				sh "mvn -am -amd versions:set -DnewVersion=${env.POM_VERSION}"
-                sh "mvn -am -amd clean install -DskipTests"
+                sh "mvn -am -amd clean install"
 			}
 		}
 		stage('Unit Test') {
