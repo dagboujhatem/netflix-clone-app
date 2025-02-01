@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @Testcontainers // Enable Testcontainers suppor
-class NetflixCategoryServiceTestsUsingTestContainer {
+class TestNetflixCategoryServiceUsingTestContainer {
 
 	@Container
 	private static final MySQLContainer<?> MYSQL_CONTAINER =
