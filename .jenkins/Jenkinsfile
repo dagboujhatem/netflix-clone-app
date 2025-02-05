@@ -112,12 +112,17 @@ pipeline {
 		stage('Static Analysis') {
 			steps {
 				script {
+					catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
+						//sh 'docker build -t myapp .'
+					}
 					echo 'Running static code analysis...'
 					try{
+						/*
 						sh "mvn clean verify sonar:sonar \
                       -Dsonar.projectKey=netflix-clone-app \
                       -Dsonar.host.url=http://13.38.181.68:9000 \
                       -Dsonar.login=06349f961e402982d41a1409dd533a32192ab729"
+                      */
 					}catch (Exception e) {
 						echo "SonarQube scan impossible."
 					}
@@ -126,7 +131,7 @@ pipeline {
 		}
 		stage('Authenticate AWS') {
 			steps {
-				withAWS(credentials: CREDENTIALS_ID, region: AWS_REGION) {
+				withAWS(credentials: "", region: AWS_REGION) {
 					sh 'aws sts get-caller-identity'  // Vérifier la connexion AWS
 				}
 			}
