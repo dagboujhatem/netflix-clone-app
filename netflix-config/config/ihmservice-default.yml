@@ -1,0 +1,5 @@
+spring:
+  level:
+    org:
+      springframework:
+        context: DEBUG
