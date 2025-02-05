@@ -131,7 +131,7 @@ pipeline {
 		}
 		stage('Authenticate AWS') {
 			steps {
-				withAWS(credentials: "", region: AWS_REGION) {
+				withAWS(credentials: CREDENTIALS_ID, region: AWS_DEFAULT_REGION) {
 					sh 'aws sts get-caller-identity'  // Vérifier la connexion AWS
 				}
 			}
