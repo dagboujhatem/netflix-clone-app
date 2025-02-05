@@ -137,7 +137,8 @@ pipeline {
 					echo 'Step 1: Login to AWS ECR'
 					sh """aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"""
 
-					def dockerTasks = jar_files.each{jar_file -> ["${jar_file.split('/')[1]}": {
+					def dockerTasks = jar_files.collectEntries{jar_file -> ["${jar_file.split('/')[1]}": {
+						print("${jar_file.split('/')[1]}")
 						def service_name = jar_file.split('/')[1]
 						def jar_file_path = jar_file.split('/' + service_name)[1]
 						echo "${jar_file_path}"
