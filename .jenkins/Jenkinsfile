@@ -9,6 +9,7 @@ pipeline {
 		ECR_PRIVATE_REGISTRY_URL = "590184116223.dkr.ecr.eu-west-3.amazonaws.com"
 		AWS_ACCOUNT_ID="590184116223"
 		AWS_DEFAULT_REGION="eu-west-3"
+		CREDENTIALS_ID="aws-credentials"
 	}
 	options {
 		buildDiscarder(logRotator(numToKeepStr: "10"))
@@ -123,7 +124,23 @@ pipeline {
 				}
 			}
 		}
-
+		stage('Authenticate AWS') {
+			steps {
+				withAWS(credentials: CREDENTIALS_ID, region: AWS_REGION) {
+					sh 'aws sts get-caller-identity'  // Vérifier la connexion AWS
+				}
+			}
+		}
+		stage('Login to AWS ECR') {
+			steps {
+				script {
+					sh '''
+                        aws ecr get-login-password --region $AWS_REGION | \
+                        docker login --username AWS --password-stdin $ECR_REPO
+                    '''
+				}
+			}
+		}
 		stage('Build image') {
 			steps {
 				script {
@@ -136,6 +153,7 @@ pipeline {
 					additional_services.each{ service ->
 						sh(script: """find ./$service/ -name '*.jar'""", returnStdout: true).trim().split('\n').each { jar_files << it }
 					}
+
 
 					echo 'Building, tagging & Push the Docker Image to AWS private registry (AWS ECR) ...'
 					echo 'Step 1: Login to AWS ECR'
