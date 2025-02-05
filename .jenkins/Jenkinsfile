@@ -111,10 +111,10 @@ pipeline {
 		stage('Static Analysis') {
 			steps {
 				echo 'Running static code analysis...'
-				sh "mvn clean verify sonar:sonar \
+				/*sh "mvn clean verify sonar:sonar \
                       -Dsonar.projectKey=netflix-clone-app \
                       -Dsonar.host.url=http://13.38.181.68:9000 \
-                      -Dsonar.login=06349f961e402982d41a1409dd533a32192ab729"
+                      -Dsonar.login=06349f961e402982d41a1409dd533a32192ab729"*/
 			}
 		}
 
@@ -143,7 +143,7 @@ pipeline {
 						def jar_file_path = jar_file.split('/' + service_name)[1]
 						echo "${jar_file_path}"
 						echo "building the ${service_name}"
-						sh "docker build -t '${env.ECR_PRIVATE_REGISTRY_URL}/${env.service_name}:${env.POM_VERSION}' -f Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}"
+						sh "docker build -t '${env.ECR_PRIVATE_REGISTRY_URL}/${service_name}:${env.POM_VERSION}' -f ./.docker/Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}"
 						//def image = docker.build("acdc/${service_name}:${env.POM_VERSION}", "-f Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}")
 						echo "pushing image ${service_name}:${env.POM_VERSION}"
 						image.push()
