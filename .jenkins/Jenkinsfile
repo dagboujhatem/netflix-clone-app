@@ -7,7 +7,7 @@ pipeline {
 	}
 	parameters {
 		booleanParam(name: 'DEPLOY_TO_ECS', defaultValue: false, description: 'Used to deploy all services in AWS ECS.')
-		choice(name: 'ENVIRONMENT', defaultValue: 'dev', choices: ['dev', 'test', 'pprd', 'prod'], description: 'Select the environment')
+		choice(name: 'ENVIRONMENT', choices: ['dev', 'test', 'pprd', 'prod'], description: 'Select the environment')
 	}
 	environment {
 		ECR_PRIVATE_REGISTRY_URL = "590184116223.dkr.ecr.eu-west-3.amazonaws.com"
