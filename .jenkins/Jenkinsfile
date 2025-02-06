@@ -150,6 +150,7 @@ pipeline {
 						echo "🚀 Building Docker image for ${service_name} ..."
 						sh "docker build -t '${ecrRepoURL}:${env.POM_VERSION}' -f ./.docker/Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}"
 						echo "pushing image ${service_name}:${env.POM_VERSION}"
+						deleteImageWithSameTagBeforePushDocker(env.AWS_DEFAULT_REGION, ecrRepoURL, ecrRepoName, env.POM_VERSION)
 						sh "docker push '${ecrRepoURL}:${env.POM_VERSION}'"
 						echo "✅ ${service_name} has been pushed to ${env.DOCKER_REG_ENV} repository."
 						}]
@@ -209,6 +210,28 @@ def ensureEcrRepositoryExists(String repoName) {
             """
 			echo "🎉 Repository '${repoName}' created successfully!"
 		}
+	} catch (Exception e) {
+		error "❌ Error: ${e.message}"
+	}
+}
+
+def deleteImageWithSameTagBeforePushDocker(String awsRegion, String ecrRepoURL, String ecrRepoName, String imageTag) {
+	try {
+		echo "🔍 Checking if image '${ecrRepoURL}:${imageTag}' exists in ECR..."
+		def dockerEnv = env.DOCKER_REG_ENV ?: "stages";
+		def imageExists = sh(
+			script: "aws ecr describe-images --repository-name ${ecrRepoName} --image-ids imageTag=${imageTag} --region ${awsRegion} 2>/dev/null",
+			returnStatus: true
+		)
+
+		if (imageExists == 0) {
+			echo "⚠️ Image '${ecrRepoURL}:${imageTag}' already exists. Deleting..."
+			sh "aws ecr batch-delete-image --repository-name ${ecrRepoName} --image-ids imageTag=${imageTag} --region ${awsRegion}"
+			echo "✅ ${ecrRepoName} image has been deleted in ${dockerEnv} repositories."
+		} else {
+			echo "✅ No existing image found. Proceeding with build and push."
+		}
+
 	} catch (Exception e) {
 		error "❌ Error: ${e.message}"
 	}
