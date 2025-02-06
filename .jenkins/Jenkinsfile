@@ -5,10 +5,14 @@ pipeline {
 			customWorkspace("workspace/${env.JOB_NAME}")
 		}
 	}
+	parameters {
+		booleanParam(name: 'DEPLOY_TO_ECS', defaultValue: false, description: 'Used to deploy all services in AWS ECS.')
+	}
 	environment {
 		ECR_PRIVATE_REGISTRY_URL = "590184116223.dkr.ecr.eu-west-3.amazonaws.com"
 		AWS_DEFAULT_REGION="eu-west-3"
 		CREDENTIALS_ID="aws-credentials"
+		ECS_CLUSTER="netflix-ecs-cluster"
 	}
 	options {
 		buildDiscarder(logRotator(numToKeepStr: "10"))
@@ -54,6 +58,7 @@ pipeline {
 				}
 			}
 		}
+
 		stage('Build') {
 			steps {
 				echo 'Building the project...'
@@ -61,6 +66,7 @@ pipeline {
                 sh "mvn -am -amd clean install"
 			}
 		}
+
 		stage('Unit Test') {
             steps {
        				echo 'Running unit tests...'
@@ -85,6 +91,7 @@ pipeline {
                 }
             }
 		}
+
 		stage('Integration Test') {
 			steps {
 				echo 'Running unit tests...'
@@ -127,6 +134,7 @@ pipeline {
 				}
 			}
 		}
+
 		stage('Build image') {
 			steps {
 				script {
@@ -159,8 +167,39 @@ pipeline {
 				}
 			}
 		}
+		stage('Check/Create ECS Cluster') {
+			when {
+				expression { return params.DEPLOY_TO_ECS }
+			}
+			steps {
+				script {
+					ensureClusterExists(env.ECS_CLUSTER, env.AWS_DEFAULT_REGION)
+				}
+			}
+		}
+
+		stage('Deploy to ECS') {
+			when {
+				expression { return params.DEPLOY_TO_ECS }
+			}
+			steps {
+				script {
+					echo "🔄 Start redeploying ECS services."
+					def services = []
+					for (service in services) {
+						echo "🔄 Redeploying ECS service: ${service}"
+						sh """
+							aws ecs update-service --cluster $ECS_CLUSTER \
+							--service $service --force-new-deployment --region $AWS_DEFAULT_REGION
+						"""
+					}
+					echo "✅ All services have been well redeployed sucessfully."
+				}
+			}
+		}
 
 	}
+
 	post {
 		always {
 			script{
@@ -177,6 +216,7 @@ pipeline {
 		}
 	}
 }
+
 def loginToAWSAndECR(String awsRegion, String ecrRepo){
 	try{
 		// Execute shell commands for AWS authentication and Docker login
@@ -235,3 +275,24 @@ def deleteImageWithSameTagBeforePushDocker(String awsRegion, String ecrRepoURL, 
 		error "❌ Error: ${e.message}"
 	}
 }
+
+def ensureClusterExists(clusterName, awsRegion) {
+	echo "🔍 Check if the cluste named '${clusterName}' is exist or not."
+	def clusterExists = sh(
+		script: """
+            aws ecs describe-clusters --clusters ${clusterName} --region ${awsRegion} --query 'clusters[0].status' --output text 2>/dev/null
+        """,
+		returnStdout: true
+	).trim()
+
+	if (clusterExists != "ACTIVE") {
+		echo "⚠️ Cluster '${clusterName}' does not exist. Creating..."
+		sh """
+            aws ecs create-cluster --cluster-name ${clusterName} --region ${awsRegion}
+        """
+		echo "✅ Cluster '${clusterName}' created successfully."
+	} else {
+		echo "⚠️ Cluster '${clusterName}' already exists."
+	}
+}
+
