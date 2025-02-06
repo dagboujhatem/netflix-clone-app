@@ -190,15 +190,13 @@ pipeline {
 				script {
 					try {
 						echo "🔄 Start redeploying ECS services."
-						def services = []
 						def clusterName = "${env.ECS_CLUSTER}-${params.ENVIRONMENT}"
 						println ecrServices
-						ecrServices.each { key, value ->
-						println "$key: $value"
-						}
-						for (service in services) {
+						ecrServices.each { service, imageUrl ->
+							println "$service: $imageUrl"
 							def serviceName = "${env.service}-${params.ENVIRONMENT}"
-							ensureServiceExists(serviceName, clusterName, TASK_DEFINITION, env.AWS_DEFAULT_REGION)
+							def taskDefinitionName = "${serviceName}-task-def-${System.currentTimeMillis()}"
+							ensureServiceExists(serviceName, clusterName, taskDefinitionName, env.AWS_DEFAULT_REGION)
 							createOrUpdateTaskDefinition(imageUrl, taskDefinitionName, env.AWS_DEFAULT_REGION)
 							echo "🔄 Redeploying ECS service: ${serviceName}"
 			/*				sh """
