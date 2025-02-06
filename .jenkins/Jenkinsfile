@@ -24,7 +24,7 @@ pipeline {
 		stage('Initialisation') {
 			steps {
 				script {
-					echo 'Retrieving changelist and revision numbers from POM file'
+					echo 'Step 1: Retrieving changelist and revision numbers from POM file'
 					env.REVISION = readMavenPom().getProperties().getProperty("revision")
 					env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
 					echo "${env.REVISION} et ${env.CHANGELIST}"
@@ -50,6 +50,7 @@ pipeline {
 					}
 
 					echo "This version is: ${env.POM_VERSION} & Docker Registry is: ${env.DOCKER_REG_ENV}"
+					loginToAWSAndECR(env.AWS_DEFAULT_REGION, env.ECR_PRIVATE_REGISTRY_URL)
 				}
 			}
 		}
@@ -112,9 +113,6 @@ pipeline {
 		stage('Static Analysis') {
 			steps {
 				script {
-					catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
-						//sh 'docker build -t myapp .'
-					}
 					echo 'Running static code analysis...'
 					try{
 						/*
@@ -126,23 +124,6 @@ pipeline {
 					}catch (Exception e) {
 						echo "SonarQube scan impossible."
 					}
-				}
-			}
-		}
-		stage('Authenticate AWS') {
-			steps {
-				withAWS(credentials: CREDENTIALS_ID, region: AWS_DEFAULT_REGION) {
-					sh 'aws sts get-caller-identity'  // Vérifier la connexion AWS
-				}
-			}
-		}
-		stage('Login to AWS ECR') {
-			steps {
-				script {
-					sh '''
-                        aws ecr get-login-password --region $AWS_REGION | \
-                        docker login --username AWS --password-stdin $ECR_REPO
-                    '''
 				}
 			}
 		}
@@ -193,5 +174,35 @@ pipeline {
 				}
 			}
 		}
+	}
+}
+def loginToAWSAndECR(String awsRegion, String ecrRepo){
+	try{
+		echo "==> ${awsRegion} et ${ecrRepo}"
+		// 1️⃣ Authentification AWS et récupération du token ECR
+		def loginCommand = "aws ecr get-login-password --region ${awsRegion}"
+		def loginProcess = loginCommand.execute()
+		def loginOutput = new StringBuilder()
+		loginProcess.waitForProcessOutput(loginOutput, System.err)
+
+		if (loginProcess.exitValue() != 0) {
+			throw new RuntimeException("❌ Erreur lors de la récupération du token ECR: ${loginOutput}")
+		}
+
+		def password = loginOutput.toString().trim()
+
+		// 2️⃣ Connexion à Docker avec le token ECR
+		def dockerLoginCommand = "docker login --username AWS --password-stdin ${ecrRepo}"
+		def dockerProcess = dockerLoginCommand.execute()
+		def dockerOutput = new StringBuilder()
+		dockerProcess.waitForProcessOutput(dockerOutput, System.err)
+
+		if (dockerProcess.exitValue() != 0) {
+			throw new RuntimeException("❌ Échec de la connexion à Docker ECR: ${dockerOutput}")
+		}
+		println "✅ Connexion réussie à AWS ECR (${ecrRepo})"
+
+	}catch (Exception e) {
+		println "⚠️ Erreur: ${e.message}"
 	}
 }
