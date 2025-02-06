@@ -135,7 +135,7 @@ pipeline {
 			}
 		}
 
-		stage('Build image') {
+		stage('Build & push images') {
 			steps {
 				script {
 					echo 'Find Jar files for this application...'
