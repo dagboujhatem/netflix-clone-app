@@ -50,7 +50,10 @@ pipeline {
 					}
 
 					echo "This version is: ${env.POM_VERSION} & Docker Registry is: ${env.DOCKER_REG_ENV}"
-					loginToAWSAndECR(env.AWS_DEFAULT_REGION, env.ECR_PRIVATE_REGISTRY_URL)
+					withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${CREDENTIALS_ID}"]]) {
+						loginToAWSAndECR(env.AWS_DEFAULT_REGION, env.ECR_PRIVATE_REGISTRY_URL)
+						//loginToAWSAndECR()
+					}
 				}
 			}
 		}
