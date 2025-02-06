@@ -7,7 +7,6 @@ pipeline {
 	}
 	environment {
 		ECR_PRIVATE_REGISTRY_URL = "590184116223.dkr.ecr.eu-west-3.amazonaws.com"
-		AWS_ACCOUNT_ID="590184116223"
 		AWS_DEFAULT_REGION="eu-west-3"
 		CREDENTIALS_ID="aws-credentials"
 	}
@@ -52,7 +51,6 @@ pipeline {
 					echo "This version is: ${env.POM_VERSION} & Docker Registry is: ${env.DOCKER_REG_ENV}"
 					withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${CREDENTIALS_ID}"]]) {
 						loginToAWSAndECR(env.AWS_DEFAULT_REGION, env.ECR_PRIVATE_REGISTRY_URL)
-						//loginToAWSAndECR()
 					}
 				}
 			}
@@ -143,11 +141,7 @@ pipeline {
 						sh(script: """find ./$service/ -name '*.jar'""", returnStdout: true).trim().split('\n').each { jar_files << it }
 					}
 
-
 					echo 'Building, tagging & Push the Docker Image to AWS private registry (AWS ECR) ...'
-					echo 'Step 1: Login to AWS ECR'
-					sh """aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"""
-
 					def dockerTasks = jar_files.collectEntries{jar_file -> ["${jar_file.split('/')[1]}": {
 						print("${jar_file.split('/')[1]}")
 						def service_name = jar_file.split('/')[1]
@@ -180,40 +174,14 @@ pipeline {
 	}
 }
 def loginToAWSAndECR(String awsRegion, String ecrRepo){
-	try{/*
-		echo "==> ${awsRegion} et ${ecrRepo}"
-		// 1️⃣ Authentification AWS et récupération du token ECR
-		def loginCommand = "aws ecr get-login-password --region ${awsRegion}"
-		def loginProcess = loginCommand.execute()
-		def loginOutput = new StringBuilder()
-		loginProcess.waitForProcessOutput(loginOutput, System.err)
-
-		if (loginProcess.exitValue() != 0) {
-			throw new RuntimeException("❌ Erreur lors de la récupération du token ECR: ${loginOutput}")
-		}
-
-		def password = loginOutput.toString().trim()
-
-		// 2️⃣ Connexion à Docker avec le token ECR
-		def dockerLoginCommand = "docker login --username AWS --password-stdin ${ecrRepo}"
-		def dockerProcess = dockerLoginCommand.execute()
-		def dockerOutput = new StringBuilder()
-		dockerProcess.waitForProcessOutput(dockerOutput, System.err)
-
-		if (dockerProcess.exitValue() != 0) {
-			throw new RuntimeException("❌ Échec de la connexion à Docker ECR: ${dockerOutput}")
-		}
-		println "✅ Connexion réussie à AWS ECR (${ecrRepo})"*/
-
-		// Exécuter les commandes shell pour l'authentification AWS et Docker
+	try{
+		// Execute shell commands for AWS authentication and Docker login
 		sh """
             aws ecr get-login-password --region ${awsRegion} | docker login --username AWS --password-stdin ${ecrRepo}
         """
-
-		println "✅ Connexion réussie à AWS ECR (${ecrRegistryUrl})"
-
+		println "✅ Successfully logged in to AWS ECR (${ecrRepo})"
 
 	}catch (Exception e) {
-		println "⚠️ Erreur: ${e.message}"
+		println "⚠️ Error: ${e.message}"
 	}
 }
