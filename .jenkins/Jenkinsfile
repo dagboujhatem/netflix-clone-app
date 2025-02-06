@@ -1,3 +1,4 @@
+def ecrServices = new HashMap()
 pipeline {
 	agent {
 		label {
@@ -162,6 +163,7 @@ pipeline {
 						deleteImageWithSameTagBeforePushDocker(env.AWS_DEFAULT_REGION, ecrRepoURL, ecrRepoName, env.POM_VERSION)
 						sh "docker push '${ecrRepoURL}:${env.POM_VERSION}'"
 						echo "✅ ${service_name} has been pushed to ECR repository."
+						ecrServices.put(service_name, "${ecrRepoURL}:${env.POM_VERSION}")
 						}]
 					}
 					parallel dockerTasks
@@ -190,9 +192,14 @@ pipeline {
 						echo "🔄 Start redeploying ECS services."
 						def services = []
 						def clusterName = "${env.ECS_CLUSTER}-${params.ENVIRONMENT}"
+						println ecrServices
+						ecrServices.each { key, value ->
+						println "$key: $value"
+						}
 						for (service in services) {
 							def serviceName = "${env.service}-${params.ENVIRONMENT}"
 							ensureServiceExists(serviceName, clusterName, TASK_DEFINITION, env.AWS_DEFAULT_REGION)
+							createOrUpdateTaskDefinition(imageUrl, taskDefinitionName, env.AWS_DEFAULT_REGION)
 							echo "🔄 Redeploying ECS service: ${serviceName}"
 			/*				sh """
 								aws ecs update-service --cluster $clusterName \
@@ -317,7 +324,7 @@ def ensureServiceExists(serviceName, clusterName, taskDefinition, awsRegion) {
 	).trim()
 
 	if (serviceExists != "ACTIVE") {
-		echo "⚠️  Service '${serviceName}' n'existe pas. Création en cours..."
+		echo "⚡ The service named '${serviceName}' does not exist. Creating..."
 		sh """
             aws ecs create-service --cluster ${clusterName} \
                 --service-name ${serviceName} \
@@ -327,10 +334,75 @@ def ensureServiceExists(serviceName, clusterName, taskDefinition, awsRegion) {
                 --network-configuration 'awsvpcConfiguration={subnets=[subnet-12345678],securityGroups=[sg-12345678],assignPublicIp="ENABLED"}' \
                 --region ${awsRegion}
         """
-		echo "✅ Service '${serviceName}' créé avec succès."
+		echo "✅ Service '${serviceName}' has been created successfully."
 	} else {
-		echo "✅ Service '${serviceName}' existe déjà."
+		echo "✅ Service '${serviceName}' already exists."
 	}
 }
+
+def createOrUpdateTaskDefinition(imageUrl, taskDefinitionName, awsRegion) {
+	try {
+		// Check if Task Definition exists
+		echo "🔄 Checking if Task Definition ${taskDefinitionName} exists..."
+
+		def taskDef = sh(
+			script: """
+                aws ecs describe-task-definition --task-definition ${taskDefinitionName} \
+                --query 'taskDefinition' --output json --region ${awsRegion}
+            """,
+			returnStdout: true,
+			returnStatus: true
+		)
+
+		if (taskDef ==~ /.*"status".*NOT_FOUND.*/) {
+			echo "⚡ Task Definition does not exist. Creating new Task Definition..."
+
+			// Create a new Task Definition with the provided image URL
+			def newTaskDef = """
+            {
+                "family": "${taskDefinitionName}",
+                "containerDefinitions": [
+                    {
+                        "name": "my-container",
+                        "image": "${imageUrl}",
+                        "memory": 512,
+                        "cpu": 256,
+                        "essential": true
+                    }
+                ]
+            }
+            """
+
+			// Register the new Task Definition
+			echo "✅ Registering new Task Definition..."
+			sh """
+                aws ecs register-task-definition --cli-input-json '${newTaskDef}' --region ${awsRegion}
+            """
+			echo "🚀 Task Definition created and registered successfully!"
+		} else {
+			echo "✅ Task Definition ${taskDefinitionName} exists. Updating the Task Definition..."
+
+			// Update the existing Task Definition to use the new image URL
+			def updatedTaskDef = taskDef.replaceAll(
+				'"image":\\s*"[^"]+"',
+				"\"image\": \"${imageUrl}\""
+			)
+
+			// Save the updated Task Definition to a file
+			writeFile file: 'updated-task-definition.json', text: updatedTaskDef
+
+			// Register the updated Task Definition
+			echo "✅ Registering updated Task Definition..."
+			sh """
+                aws ecs register-task-definition --cli-input-json file://updated-task-definition.json --region ${awsRegion}
+            """
+			echo "🚀 Task Definition updated successfully with image: ${imageUrl}"
+		}
+	} catch (Exception e) {
+		echo "❌ Error: ${e.message}"
+		throw e
+	}
+}
+
 
 
