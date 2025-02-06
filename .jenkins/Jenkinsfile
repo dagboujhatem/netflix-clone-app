@@ -196,13 +196,13 @@ pipeline {
 							println "$service: $imageUrl"
 							def serviceName = "${env.service}-${params.ENVIRONMENT}"
 							def taskDefinitionName = "${serviceName}-task-def-${System.currentTimeMillis()}"
-							ensureServiceExists(serviceName, clusterName, taskDefinitionName, env.AWS_DEFAULT_REGION)
 							createOrUpdateTaskDefinition(imageUrl, taskDefinitionName, env.AWS_DEFAULT_REGION)
+							ensureServiceExists(serviceName, clusterName, taskDefinitionName, env.AWS_DEFAULT_REGION)
 							echo "🔄 Redeploying ECS service: ${serviceName}"
-			/*				sh """
+							sh """
 								aws ecs update-service --cluster $clusterName \
 								--service $serviceName --force-new-deployment --region $AWS_DEFAULT_REGION
-							"""*/
+							"""
 						}
 						echo "✅ All services have been well redeployed sucessfully."
 					} catch (Exception e) {
