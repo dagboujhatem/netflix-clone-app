@@ -177,7 +177,7 @@ pipeline {
 	}
 }
 def loginToAWSAndECR(String awsRegion, String ecrRepo){
-	try{
+	try{/*
 		echo "==> ${awsRegion} et ${ecrRepo}"
 		// 1️⃣ Authentification AWS et récupération du token ECR
 		def loginCommand = "aws ecr get-login-password --region ${awsRegion}"
@@ -200,7 +200,15 @@ def loginToAWSAndECR(String awsRegion, String ecrRepo){
 		if (dockerProcess.exitValue() != 0) {
 			throw new RuntimeException("❌ Échec de la connexion à Docker ECR: ${dockerOutput}")
 		}
-		println "✅ Connexion réussie à AWS ECR (${ecrRepo})"
+		println "✅ Connexion réussie à AWS ECR (${ecrRepo})"*/
+
+		// Exécuter les commandes shell pour l'authentification AWS et Docker
+		sh """
+            aws ecr get-login-password --region ${awsRegion} | docker login --username AWS --password-stdin ${ecrRepo}
+        """
+
+		println "✅ Connexion réussie à AWS ECR (${ecrRegistryUrl})"
+
 
 	}catch (Exception e) {
 		println "⚠️ Erreur: ${e.message}"
