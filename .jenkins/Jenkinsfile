@@ -26,7 +26,6 @@ pipeline {
 					echo 'Step 1: Retrieving changelist and revision numbers from POM file'
 					env.REVISION = readMavenPom().getProperties().getProperty("revision")
 					env.CHANGELIST = readMavenPom().getProperties().getProperty("changelist")
-					echo "${env.REVISION} et ${env.CHANGELIST}"
 
 					if (env.CHANGELIST == "-SNAPSHOT") {
 						env.DOCKER_REG_ENV = 'stages'
@@ -48,7 +47,7 @@ pipeline {
 						error "The changelist must be either -SNAPSHOT or -RELEASE"
 					}
 
-					echo "This version is: ${env.POM_VERSION} & Docker Registry is: ${env.DOCKER_REG_ENV}"
+					echo "✅ This version is: ${env.POM_VERSION}"
 					withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${CREDENTIALS_ID}"]]) {
 						loginToAWSAndECR(env.AWS_DEFAULT_REGION, env.ECR_PRIVATE_REGISTRY_URL)
 					}
@@ -143,12 +142,15 @@ pipeline {
 
 					echo 'Building, tagging & Push the Docker Image to AWS private registry (AWS ECR) ...'
 					def dockerTasks = jar_files.collectEntries{jar_file -> ["${jar_file.split('/')[1]}": {
-						print("${jar_file.split('/')[1]}")
 						def service_name = jar_file.split('/')[1]
 						def jar_file_path = jar_file.split('/' + service_name)[1]
+						def ecrRepo = "${env.ECR_PRIVATE_REGISTRY_URL}/${service_name}-${env.DOCKER_REG_ENV}"
+						ensureEcrRepositoryExists(service_name)
+						echo "🚀 Building Docker image for ${service_name} ..."
 						sh "docker build -t 'netflix-${env.DOCKER_REG_ENV}/${service_name}:${env.POM_VERSION}' -f ./.docker/Dockerfile --no-cache --build-arg JAR_FILE=${jar_file_path} ./${service_name}"
 						echo "pushing image ${service_name}:${env.POM_VERSION}"
 						sh "docker push '${env.ECR_PRIVATE_REGISTRY_URL}/netflix-${env.DOCKER_REG_ENV}/${service_name}:${env.POM_VERSION}'"
+						echo "✅ ${service_name} has been pushed to both staging & release repository."
 						}]
 					}
 					parallel dockerTasks
@@ -177,11 +179,36 @@ def loginToAWSAndECR(String awsRegion, String ecrRepo){
 	try{
 		// Execute shell commands for AWS authentication and Docker login
 		sh """
+			echo "🔐 Logging in to AWS ECR..."
             aws ecr get-login-password --region ${awsRegion} | docker login --username AWS --password-stdin ${ecrRepo}
         """
 		println "✅ Successfully logged in to AWS ECR (${ecrRepo})"
 
 	}catch (Exception e) {
 		println "⚠️ Error: ${e.message}"
+	}
+}
+
+def ensureEcrRepositoryExists(String repoName) {
+	try {
+		def awsRegion = env.AWS_DEFAULT_REGION  ?: "eu-west-3"
+		def ecrRepoBase = env.ECR_PRIVATE_REGISTRY_URL ?: "590184116223.dkr.ecr.eu-west-3.amazonaws.com"
+
+		echo "🔍 Checking if ECR repository '${repoName}' exists..."
+
+		def checkRepoCmd = "aws ecr describe-repositories --repository-names ${repoName} --region ${awsRegion} 2>/dev/null"
+		def checkRepoStatus = sh(script: checkRepoCmd, returnStatus: true)
+
+		if (checkRepoStatus == 0) {
+			echo "✅ ECR repository '${repoName}' already exists."
+		} else {
+			echo "⚠️ Repository '${repoName}' not found. Creating it now..."
+			sh """
+                aws ecr create-repository --repository-name ${repoName} --region ${awsRegion}
+            """
+			echo "🎉 Repository '${repoName}' created successfully!"
+		}
+	} catch (Exception e) {
+		error "❌ Error: ${e.message}"
 	}
 }
