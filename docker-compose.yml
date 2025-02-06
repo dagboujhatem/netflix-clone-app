@@ -1,41 +1,125 @@
 version: '3.8'
 
-# Define global variables using anchors
-x-args:
-  POM_VERSION: "1.0.0"
 services:
   #  netflix-config
   netflix-config:
-    image: netflix-config:latest
+    image: netflix-config:${POM_VERSION}
     container_name: netflix-config
     build:
-      context: .
-      dockerfile: .docker/Dockerfile
+      context: ./netflix-config
+      dockerfile: ../.docker/Dockerfile
       args:
-        SERVICE_DIR: netflix-config
-        POM_VERSION: ${POM_VERSION}
+        JAR_FILE: ./target/netflix-config-${POM_VERSION}.jar
     ports:
       - "8012:8012"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-#  # Spring Boot application services
-#  netflix-user-service:
-#    #  netflix-user-service
-#    image: netflix-user-service:latest   # Use the name of your image or 'build' if building it in the compose file
-#    build:
-#      context: ./netflix-user-service               # Build the Dockerfile in the current directory
-#      dockerfile: ./.docker/Dockerfile    # Dockerfile name if different
-#    ports:
-#      - "8081:8081"             # Map the application port
-#    environment:
-#      - SPRING_PROFILES_ACTIVE=prod
-#      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/netflix_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-#      - SPRING_DATASOURCE_USERNAME=root
-#      - SPRING_DATASOURCE_PASSWORD=W6o6aOirRdDuxCk
-#    networks:
-#      - backend
-#    depends_on:
-#      - mysql                  # Wait for MySQL service before starting the Spring Boot app
+
+  #  netflix-service-discovery
+  netflix-service-discovery:
+    image: netflix-service-discovery:${POM_VERSION}
+    container_name: netflix-service-discovery
+    build:
+      context: ./netflix-service-discovery
+      dockerfile: ../.docker/Dockerfile
+      args:
+        JAR_FILE: ./target/netflix-service-discovery-${POM_VERSION}.jar
+    ports:
+      - "8013:8013"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    networks:
+      - backend
+    depends_on:
+      - netflix-config
+
+  #  netflix-api-gateway
+  netflix-api-gateway:
+    image: netflix-api-gateway:${POM_VERSION}
+    container_name: netflix-api-gateway
+    build:
+      context: ./netflix-api-gateway
+      dockerfile: ../.docker/Dockerfile
+      args:
+        JAR_FILE: ./target/netflix-api-gateway-${POM_VERSION}.jar
+    ports:
+      - "8014:8014"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    networks:
+      - backend
+    depends_on:
+      - netflix-config
+      - netflix-service-discovery
+
+  #  netflix-movie-service
+  netflix-movie-service:
+    image: netflix-movie-service:${POM_VERSION}
+    container_name: netflix-movie-service
+    build:
+      context: ./netflix-movie-service
+      dockerfile: ../.docker/Dockerfile
+      args:
+        JAR_FILE: ./target/netflix-movie-service-${POM_VERSION}.jar
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/netflix_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=W6o6aOirRdDuxCk
+    networks:
+      - backend
+    depends_on: # Wait for MySQL, starting netflix-config & starting netflix-service-discovery before starting the user-service
+      - netflix-config
+      - netflix-service-discovery
+      - mysql
+
+  #  netflix-category-service
+  netflix-category-service:
+    image: netflix-category-service:${POM_VERSION}
+    container_name: netflix-category-service
+    build:
+      context: ./netflix-category-service
+      dockerfile: ../.docker/Dockerfile
+      args:
+        JAR_FILE: ./target/netflix-category-service-${POM_VERSION}.jar
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/netflix_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=W6o6aOirRdDuxCk
+    networks:
+      - backend
+    depends_on: # Wait for MySQL, starting netflix-config & starting netflix-service-discovery before starting the user-service
+      - netflix-config
+      - netflix-service-discovery
+      - mysql
+
+  #  netflix-user-service
+  netflix-user-service:
+    image: netflix-user-service:${POM_VERSION}   # Use the name of your image or 'build' if building it in the compose file
+    container_name: netflix-user-service
+    build:
+      context: ./netflix-user-service               # Build the Dockerfile in the current directory
+      dockerfile: ../.docker/Dockerfile    # Dockerfile name if different
+      args:
+        JAR_FILE: ./target/netflix-user-service-${POM_VERSION}.jar
+    ports:
+      - "8081:8081"             # Map the application port
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/netflix_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=W6o6aOirRdDuxCk
+    networks:
+      - backend
+    depends_on: # Wait for MySQL, starting netflix-config & starting netflix-service-discovery before starting the user-service
+      - netflix-config
+      - netflix-service-discovery
+      - mysql
 
   # MySQL service
   mysql:
