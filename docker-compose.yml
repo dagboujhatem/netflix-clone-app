@@ -13,7 +13,7 @@ services:
     ports:
       - "8012:8012"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
 
   #  netflix-service-discovery
   netflix-service-discovery:
@@ -27,7 +27,7 @@ services:
     ports:
       - "8013:8013"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
     networks:
       - backend
     depends_on:
@@ -45,7 +45,7 @@ services:
     ports:
       - "8014:8014"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
     networks:
       - backend
     depends_on:
@@ -64,10 +64,10 @@ services:
     ports:
       - "8083:8083"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/netflix_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=W6o6aOirRdDuxCk
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
     networks:
       - backend
     depends_on: # Wait for MySQL, starting netflix-config & starting netflix-service-discovery before starting the user-service
@@ -87,10 +87,10 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/netflix_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=W6o6aOirRdDuxCk
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
     networks:
       - backend
     depends_on: # Wait for MySQL, starting netflix-config & starting netflix-service-discovery before starting the user-service
@@ -110,10 +110,10 @@ services:
     ports:
       - "8081:8081"             # Map the application port
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/netflix_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=W6o6aOirRdDuxCk
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
     networks:
       - backend
     depends_on: # Wait for MySQL, starting netflix-config & starting netflix-service-discovery before starting the user-service
@@ -127,7 +127,7 @@ services:
     container_name: mysql-netflix
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: W6o6aOirRdDuxCk
+      MYSQL_ROOT_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
     ports:
       - "3306:3306"             # Expose MySQL port to localhost (if needed)
     volumes:

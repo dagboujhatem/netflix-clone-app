@@ -11,4 +11,4 @@ RUN chown -R webadm:webadm /app && chmod 755 /app
 # Switch to the non-root user
 USER webadm
 EXPOSE 8080
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "/app/app.jar"]
