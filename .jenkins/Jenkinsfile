@@ -196,7 +196,7 @@ pipeline {
 							println "$service: $imageUrl"
 							def serviceName = "${service}-${params.ENVIRONMENT}"
 							def taskDefinitionName = "${serviceName}-task-def-${System.currentTimeMillis()}"
-							//createOrUpdateTaskDefinition(imageUrl, taskDefinitionName, env.AWS_DEFAULT_REGION)
+							createOrUpdateTaskDefinition(imageUrl, taskDefinitionName, env.AWS_DEFAULT_REGION)
 							ensureServiceExists(serviceName, clusterName, taskDefinitionName, env.AWS_DEFAULT_REGION)
 							echo "🔄 Redeploying ECS service: ${serviceName}"
 							sh """
@@ -284,7 +284,7 @@ def deleteImageWithSameTagBeforePushDocker(String awsRegion, String ecrRepoURL, 
 			sh "aws ecr batch-delete-image --repository-name ${ecrRepoName} --image-ids imageTag=${imageTag} --region ${awsRegion}"
 			echo "✅ '${ecrRepoURL}:${imageTag}' image has been deleted successfully."
 		} else {
-			echo "✅ No existing image found. Proceeding with build and push."
+			echo "✅ No existing image found. Proceeding with push."
 		}
 
 	} catch (Exception e) {
