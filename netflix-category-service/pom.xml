@@ -17,6 +17,7 @@
     <description>Category Service for Netflix App</description>
 
     <properties>
+        <start-class>com.albinus.netflix.services.NetflixCategoryServiceApplication</start-class>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <flyway.version>10.1.0</flyway.version>
@@ -110,4 +111,29 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <!-- Plugin used for packaging: spring-boot-maven-plugin (generate a JAR with all dependencies included) -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>${start-class}</mainClass>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>  <!-- Par défaut -->
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
