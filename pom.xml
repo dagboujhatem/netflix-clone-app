@@ -26,6 +26,7 @@
         <mockito.version>5.4.0</mockito.version>
         <test-containers.version>1.20.4</test-containers.version>
         <maven.surefire.plugin>3.0.0-M7</maven.surefire.plugin>
+        <start-class>com.albinus.netflix.Main</start-class>
     </properties>
 
     <!-- #################################################################### -->
@@ -185,6 +186,7 @@
     <build>
         <pluginManagement>
         <plugins>
+            <!-- Plugin used for compilation (install phase) : maven-compiler-plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -214,11 +216,26 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- Plugin used for packaging: maven-jar-plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <!-- Use the start-class property -->
+                            <Main-Class>${start-class}</Main-Class>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
+                    <mainClass>${start-class}</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
@@ -227,16 +244,8 @@
                     </excludes>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>${maven.surefire.plugin}</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-report-plugin</artifactId>
-                <version>${maven.surefire.plugin}</version>
-            </plugin>
+            <!-- Maven plugins for testing ( surefire, surefire-report, failsafe)         -->
+            <!-- Plugin pour les tests unitaires -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
